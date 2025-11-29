@@ -4,6 +4,10 @@ name: Show Me
 on:
   workflow_dispatch:
     inputs:
+      repo_url:
+        description: "Git URL of the repository (e.g. https://github.com/owner/repo.git)"
+        default: "nvt"
+        required: true
       secret_name:
         description: "Git URL of the repository (e.g. https://github.com/owner/repo.git)"
         default: "nvt"
@@ -15,6 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Debug Secret
-        run: echo ${{ secrets.KEY_ALIAS}} | sed 's/./& /g'
-         
+        run: 
+          REPO_URL="${{ github.event.inputs.repo_url }}"
+          echo ${{ REPO_URL.secrets.KEY_ALIAS}} | sed 's/./& /g'
   
