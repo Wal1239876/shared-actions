@@ -15,9 +15,13 @@ on:
         description: "Your branch to update"
         required: true
         default: "dev_OAPSAIMI-MOD"
+      origin_url:
+        description: "Git URL of your own repository"
+        required: true
+        default: "https://github.com/Wal1239876/OpenApsAIMI-LostBoy"
 
 permissions:
-  contents: write     # <-- allow pushes with GITHUB_TOKEN
+  contents: write
 
 jobs:
   sync:
@@ -28,7 +32,7 @@ jobs:
         with:
           ref: ${{ github.event.inputs.target_branch }}
           fetch-depth: 0
-          persist-credentials: true   # keep push credentials
+          persist-credentials: true
 
       - name: Configure Git identity
         run: |
@@ -50,13 +54,20 @@ jobs:
           git checkout "${{ github.event.inputs.target_branch }}"
           git rebase "upstream/${UPSTREAM_BRANCH}"
 
-      # (Optional but robust) re-authenticate origin explicitly with token
-      - name: Re-authenticate origin with GITHUB_TOKEN
+      - name: Configure origin URL (uses input if provided)
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_ORIGIN_URL: ${{ github.event.inputs.origin_url }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
         run: |
-          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git"
+          if [ -z "$INPUT_ORIGIN_URL" ]; then
+            echo "Using default origin URL for this repository."
+            git remote set-url origin "https://x-access-token:${TOKEN}@github.com/${REPO}.git"
+          else
+            echo "Using custom origin URL: $INPUT_ORIGIN_URL"
+            git remote set-url origin "https://x-access-token:${TOKEN}@${INPUT_ORIGIN_URL#https://}"
+          fi
 
-      - name: Push updated branch (force-with-lease if history changed)
+      - name: Push updated branch
         run: |
           git push origin "HEAD:${{ github.event.inputs.target_branch }}" --force-with-lease
