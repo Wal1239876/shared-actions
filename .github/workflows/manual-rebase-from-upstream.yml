@@ -1,0 +1,62 @@
+name: Manual Rebase from Upstream
+
+on:
+  workflow_dispatch:
+    inputs:
+      upstream_url:
+        description: "Git URL of the upstream repository (e.g. https://github.com/owner/repo.git)"
+        required: true
+        default: "https://github.com/lostboy86/OpenApsAIMI-LostBoy"
+      upstream_branch:
+        description: "Upstream branch to sync from"
+        required: true
+        default: "dev_OAPSAIMI-MOD"
+      target_branch:
+        description: "Your branch to update"
+        required: true
+        default: "dev_OAPSAIMI-MOD"
+
+permissions:
+  contents: write     # <-- allow pushes with GITHUB_TOKEN
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout target branch (full history)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.target_branch }}
+          fetch-depth: 0
+          persist-credentials: true   # keep push credentials
+
+      - name: Configure Git identity
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream and fetch
+        env:
+          UPSTREAM_URL: ${{ github.event.inputs.upstream_url }}
+        run: |
+          git remote add upstream "$UPSTREAM_URL"
+          git fetch --prune upstream
+          git fetch --prune origin
+
+      - name: Rebase target onto upstream
+        env:
+          UPSTREAM_BRANCH: ${{ github.event.inputs.upstream_branch }}
+        run: |
+          git checkout "${{ github.event.inputs.target_branch }}"
+          git rebase "upstream/${UPSTREAM_BRANCH}"
+
+      # (Optional but robust) re-authenticate origin explicitly with token
+      - name: Re-authenticate origin with GITHUB_TOKEN
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git"
+
+      - name: Push updated branch (force-with-lease if history changed)
+        run: |
+          git push origin "HEAD:${{ github.event.inputs.target_branch }}" --force-with-lease
