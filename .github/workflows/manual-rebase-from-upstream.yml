@@ -3,8 +3,12 @@ name: Manual Rebase from Upstream
 on:
   workflow_dispatch:
     inputs:
+      origin_repo:
+        description: "Your repo (owner/repo), e.g. Wal1239876/OpenApsAIMI-LostBoy"
+        required: true
+        default: "Wal1239876/OpenApsAIMI-LostBoy"
       upstream_url:
-        description: "Git URL of the upstream repository (e.g. https://github.com/owner/repo.git)"
+        description: "Git URL of the upstream repository"
         required: true
         default: "https://github.com/lostboy86/OpenApsAIMI-LostBoy"
       upstream_branch:
@@ -15,24 +19,19 @@ on:
         description: "Your branch to update"
         required: true
         default: "dev_OAPSAIMI-MOD"
-      origin_url:
-        description: "Git URL of your own repository"
-        required: true
-        default: "https://github.com/Wal1239876/OpenApsAIMI-LostBoy"
-
-permissions:
-  contents: write
 
 jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout target branch (full history)
+      - name: Checkout target repo + branch (full history)
         uses: actions/checkout@v4
         with:
+          repository: ${{ github.event.inputs.origin_repo }}
           ref: ${{ github.event.inputs.target_branch }}
           fetch-depth: 0
-          persist-credentials: true
+          # Use a PAT that has write access to origin_repo
+          token: ${{ secrets.PAT_TOKEN }}
 
       - name: Configure Git identity
         run: |
@@ -54,20 +53,7 @@ jobs:
           git checkout "${{ github.event.inputs.target_branch }}"
           git rebase "upstream/${UPSTREAM_BRANCH}"
 
-      - name: Configure origin URL (uses input if provided)
-        env:
-          INPUT_ORIGIN_URL: ${{ github.event.inputs.origin_url }}
-          TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-        run: |
-          if [ -z "$INPUT_ORIGIN_URL" ]; then
-            echo "Using default origin URL for this repository."
-            git remote set-url origin "https://x-access-token:${TOKEN}@github.com/${REPO}.git"
-          else
-            echo "Using custom origin URL: $INPUT_ORIGIN_URL"
-            git remote set-url origin "https://x-access-token:${TOKEN}@${INPUT_ORIGIN_URL#https://}"
-          fi
-
       - name: Push updated branch
         run: |
           git push origin "HEAD:${{ github.event.inputs.target_branch }}" --force-with-lease
+
